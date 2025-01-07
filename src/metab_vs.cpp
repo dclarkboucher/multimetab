@@ -23,7 +23,7 @@ arma::vec arma_ifelse(arma::uvec cond, const arma::vec& a, const arma::vec& b){
 }
 
 
-void update_c_beta0(
+void update_beta0(
     double& beta0,
     const arma::vec& y_star,
     const arma::vec& u,
@@ -39,7 +39,7 @@ void update_c_beta0(
   beta0 = R::rnorm(a / A, pow(A, -0.5));
 }
 
-void update_c_u(
+void update_u(
     arma::vec& u,
     const arma::uvec& which_missing,
     const double& psi,
@@ -57,7 +57,7 @@ void update_c_u(
   }
 }
 
-void update_c_rho(
+void update_rho(
     double& rho,
     const arma::vec& u,
     const double& rho_0,
@@ -70,7 +70,7 @@ void update_c_rho(
 
 }
 
-void update_c_sigma2(
+void update_sigma2(
     double& sigma2,
     const arma::vec& y_star,
     const arma::vec& u,
@@ -86,7 +86,7 @@ void update_c_sigma2(
 
 }
 
-void update_c_z(
+void update_z(
     arma::vec& z,
     const arma::vec& y_star,
     const arma::vec& u,
@@ -111,7 +111,7 @@ void update_c_z(
   }
 }
 
-void update_c_delta(
+void update_delta(
     double& delta,
     const arma::vec& y_star,
     const arma::vec& u,
@@ -127,7 +127,7 @@ void update_c_delta(
 
 }
 
-void update_c_y_star(
+void update_y_star(
     arma::vec& y_star,
     const arma::uvec& which_missing,
     const double& psi,
@@ -153,7 +153,7 @@ void update_c_y_star(
   }
 }
 
-void refine_c_beta(
+void refine_beta(
     arma::vec& beta,
     const arma::vec& y_star,
     const double& beta0,
@@ -185,7 +185,7 @@ double expit(double x){
 
 }
 
-void update_c_gamma_beta(
+void update_gamma_beta(
     arma::vec& beta,
     arma::vec& gamma,
     int& decision,
@@ -326,14 +326,14 @@ void bvs_mcmc(
     bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples,
     arma::mat& gamma_samples, arma::vec& sigma2_samples,
     arma::vec& delta_samples, arma::vec& rho_samples,
-    arma::vec& acceptance, arma::vec& moves
+    arma::vec& acceptance, arma::vec& moves, int& pt_check, int pmax, int pmax_draws
 ){
 
   // Set up
   int n = y.n_elem;
   int p = X.n_cols;
-  arma::uvec which_missing = find(y <= psi);
-  arma::uvec which_present = find(y > psi);
+  arma::uvec which_missing = find(y < psi);
+  arma::uvec which_present = find(y >= psi);
   int n_zero = which_missing.n_elem;
   arma::mat XtX = X.t() * X;
   int total_draws = burnin + reps;
@@ -387,7 +387,6 @@ void bvs_mcmc(
 
   // Adaptation
   // (adapt_prop: proportion of burn-in to use in adaptation)
-
   int adapt_point = int(burnin * (1 - adapt_prop));
   arma::mat adapt_beta_storage(p, burnin - adapt_point);
   arma::vec adapt_beta_mean(p, arma::fill::zeros);
@@ -395,32 +394,35 @@ void bvs_mcmc(
   arma::vec beta_vec_temp(burnin - adapt_point);
   arma::uvec which_betas(burnin - adapt_point);
 
+  // Things for phase transition check
+  int size_counter;
 
+  // Main sampler
   for (int r = 0; r < total_draws; r++){
 
     // Update y_star (HAS TO COME FIRST DUE TO INITIALIZATION)
-    update_c_y_star(y_star, which_missing, psi, u, current_mean, sigma2);
+    update_y_star(y_star, which_missing, psi, u, current_mean, sigma2);
 
     // Update u
-    update_c_u(u, which_missing, psi, y_star, rho);
+    update_u(u, which_missing, psi, y_star, rho);
 
     // Update rho
-    update_c_rho(rho, u, rho_0, rho_1);
+    update_rho(rho, u, rho_0, rho_1);
 
     // Update delta
     if (infer_delta){
-      update_c_z(z, y_star, u, beta0, X_beta, sigma2, delta);
+      update_z(z, y_star, u, beta0, X_beta, sigma2, delta);
 
-      update_c_delta(delta, y_star, u, beta0, X_beta, sigma2,
+      update_delta(delta, y_star, u, beta0, X_beta, sigma2,
                      z, nu2_d);
     }
 
     // Update beta0
-    update_c_beta0(beta0, y_star, u, X_beta, sigma2, delta, z, nu2_0);
+    update_beta0(beta0, y_star, u, X_beta, sigma2, delta, z, nu2_0);
 
     // Update sigma2
     current_mean = X_beta + beta0 + delta * z;
-    update_c_sigma2(sigma2, y_star, u, current_mean, xi_0, sigma2_0);
+    update_sigma2(sigma2, y_star, u, current_mean, xi_0, sigma2_0);
 
     // Adaptation check
     // Throughout burnin: most recent non-zero beta is proposal mean
@@ -461,15 +463,26 @@ void bvs_mcmc(
     // Update beta and gamma
     if (vs){
       sigma_vec = arma::ones<arma::vec>(n) * pow(sigma2,0.5);
-      update_c_gamma_beta(
+      update_gamma_beta(
         beta,gamma,decision,move,y_star,u,X,current_mean,sigma_vec,nu2,R,
         omega,eta,proposal_mean,theta2
       );
     }
 
+    // Check for possible phase transition
+    if (int(sum(gamma)) > pmax){
+      size_counter++;
+    } else {
+      size_counter = 0;
+    }
+
+    if (size_counter > pmax_draws){
+      pt_check = 1;
+      break;
+    }
     // Refine betas
     if (refine_betas){
-      refine_c_beta(beta,y_star,beta0,X,XtX,gamma,sigma2,
+      refine_beta(beta,y_star,beta0,X,XtX,gamma,sigma2,
                     delta,z,nu2_inv_mat);
     }
 

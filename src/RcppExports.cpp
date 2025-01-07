@@ -11,9 +11,26 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// get_prior_stat
+List get_prior_stat(double omega, arma::vec etas, arma::mat R, int draws, int burnin, int thin, double quantile);
+RcppExport SEXP _multimetab_get_prior_stat(SEXP omegaSEXP, SEXP etasSEXP, SEXP RSEXP, SEXP drawsSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP quantileSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type etas(etasSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type R(RSEXP);
+    Rcpp::traits::input_parameter< int >::type draws(drawsSEXP);
+    Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
+    Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
+    Rcpp::traits::input_parameter< double >::type quantile(quantileSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_prior_stat(omega, etas, R, draws, burnin, thin, quantile));
+    return rcpp_result_gen;
+END_RCPP
+}
 // bvs_mcmc
-void bvs_mcmc(arma::vec y, arma::mat X, double psi, List hyper_params, arma::mat R, double theta2, int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive, bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples, arma::mat& gamma_samples, arma::vec& sigma2_samples, arma::vec& delta_samples, arma::vec& rho_samples, arma::vec& acceptance, arma::vec& moves);
-RcppExport SEXP _multimetab_bvs_mcmc(SEXP ySEXP, SEXP XSEXP, SEXP psiSEXP, SEXP hyper_paramsSEXP, SEXP RSEXP, SEXP theta2SEXP, SEXP repsSEXP, SEXP burninSEXP, SEXP thinningSEXP, SEXP infer_deltaSEXP, SEXP refine_betasSEXP, SEXP adaptiveSEXP, SEXP vsSEXP, SEXP adapt_propSEXP, SEXP beta0_samplesSEXP, SEXP beta_samplesSEXP, SEXP gamma_samplesSEXP, SEXP sigma2_samplesSEXP, SEXP delta_samplesSEXP, SEXP rho_samplesSEXP, SEXP acceptanceSEXP, SEXP movesSEXP) {
+void bvs_mcmc(arma::vec y, arma::mat X, double psi, List hyper_params, arma::mat R, double theta2, int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive, bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples, arma::mat& gamma_samples, arma::vec& sigma2_samples, arma::vec& delta_samples, arma::vec& rho_samples, arma::vec& acceptance, arma::vec& moves, int& pt_check, int pmax, int pmax_draws);
+RcppExport SEXP _multimetab_bvs_mcmc(SEXP ySEXP, SEXP XSEXP, SEXP psiSEXP, SEXP hyper_paramsSEXP, SEXP RSEXP, SEXP theta2SEXP, SEXP repsSEXP, SEXP burninSEXP, SEXP thinningSEXP, SEXP infer_deltaSEXP, SEXP refine_betasSEXP, SEXP adaptiveSEXP, SEXP vsSEXP, SEXP adapt_propSEXP, SEXP beta0_samplesSEXP, SEXP beta_samplesSEXP, SEXP gamma_samplesSEXP, SEXP sigma2_samplesSEXP, SEXP delta_samplesSEXP, SEXP rho_samplesSEXP, SEXP acceptanceSEXP, SEXP movesSEXP, SEXP pt_checkSEXP, SEXP pmaxSEXP, SEXP pmax_drawsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
@@ -38,13 +55,17 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec& >::type rho_samples(rho_samplesSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type acceptance(acceptanceSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type moves(movesSEXP);
-    bvs_mcmc(y, X, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves);
+    Rcpp::traits::input_parameter< int& >::type pt_check(pt_checkSEXP);
+    Rcpp::traits::input_parameter< int >::type pmax(pmaxSEXP);
+    Rcpp::traits::input_parameter< int >::type pmax_draws(pmax_drawsSEXP);
+    bvs_mcmc(y, X, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws);
     return R_NilValue;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_multimetab_bvs_mcmc", (DL_FUNC) &_multimetab_bvs_mcmc, 22},
+    {"_multimetab_get_prior_stat", (DL_FUNC) &_multimetab_get_prior_stat, 7},
+    {"_multimetab_bvs_mcmc", (DL_FUNC) &_multimetab_bvs_mcmc, 25},
     {NULL, NULL, 0}
 };
 
