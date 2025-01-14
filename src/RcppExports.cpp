@@ -29,7 +29,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // bvs_mcmc
-void bvs_mcmc(arma::vec y, arma::mat X, double psi, List hyper_params, arma::mat R, double theta2, int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive, bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples, arma::mat& gamma_samples, arma::vec& sigma2_samples, arma::vec& delta_samples, arma::vec& rho_samples, arma::vec& acceptance, arma::vec& moves, int& pt_check, int pmax, int pmax_draws);
+void bvs_mcmc(arma::vec y, arma::mat X, double psi, List hyper_params, arma::mat R, double theta2, int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive, bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples, arma::mat& gamma_samples, arma::vec& sigma2_samples, arma::vec& delta_samples, arma::vec& rho_samples, arma::vec& acceptance, arma::vec& moves, arma::vec& pt_check, int pmax, int pmax_draws);
 RcppExport SEXP _multimetab_bvs_mcmc(SEXP ySEXP, SEXP XSEXP, SEXP psiSEXP, SEXP hyper_paramsSEXP, SEXP RSEXP, SEXP theta2SEXP, SEXP repsSEXP, SEXP burninSEXP, SEXP thinningSEXP, SEXP infer_deltaSEXP, SEXP refine_betasSEXP, SEXP adaptiveSEXP, SEXP vsSEXP, SEXP adapt_propSEXP, SEXP beta0_samplesSEXP, SEXP beta_samplesSEXP, SEXP gamma_samplesSEXP, SEXP sigma2_samplesSEXP, SEXP delta_samplesSEXP, SEXP rho_samplesSEXP, SEXP acceptanceSEXP, SEXP movesSEXP, SEXP pt_checkSEXP, SEXP pmaxSEXP, SEXP pmax_drawsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -55,7 +55,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec& >::type rho_samples(rho_samplesSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type acceptance(acceptanceSEXP);
     Rcpp::traits::input_parameter< arma::vec& >::type moves(movesSEXP);
-    Rcpp::traits::input_parameter< int& >::type pt_check(pt_checkSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type pt_check(pt_checkSEXP);
     Rcpp::traits::input_parameter< int >::type pmax(pmaxSEXP);
     Rcpp::traits::input_parameter< int >::type pmax_draws(pmax_drawsSEXP);
     bvs_mcmc(y, X, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws);

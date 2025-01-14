@@ -1,6 +1,70 @@
+#' Select 'eta' hyper-parameter for Markov random field prior
+#'
+#'
+#'
+#' @param omega The \eqn{\omega} parameter in the Markov random field prior.
+#' When \eqn{\eta=0}, \eqn{expit(\omega)} is the prior probability that a given
+#' covariate is associated with the outcome.
+#' @param R Relationship matrix for Markov Random Field variable selection prior.
+#' Must be a symmetric non-negative matrix with diagonal zero.
+#' @param etas_try Positive numeric vector of \eqn{\eta} values to try. Default is
+#' \code{seq(0.1,4,0.1)}.
+#' @param burnin Number of burnin draws for the MCMC routine. Default (recommended)
+#' is 10000.
+#' @param draws Number of post-burnin draws for the MCMC routine. Default (recommended)
+#' is 30000.
+#' @param thinning Thinning parameter for the MCMC. Default (recommended) is 5,
+#' meaning every fifth post-burnin draw is retained.
+#' @param quantile Percentile used to match \eqn{\omega} and \eqn{\eta} to a corresponding prior
+#' with \eqn{\eta=0}. Default (recommended) is 0.95. See details.
+#'
+#' @details
+#'
+#' The functions in \code{multimetab} fit a Bayesian linear model of the form
+#' \eqn{Y=\beta_0 + \sum_{j=1}^p\beta_jX_j + \Epsilon}. The model performs Bayesian
+#' variable selection by using spike-and-slab priors
+#' \eqn{\beta_j\sim N(0,\gamma_j\nu_j^2)} on the regression coefficients. Here,
+#' \eqn{\gamma_j} is an indicator variable for whether \eqn{X_j} is associated with
+#' \eqn{Y}, and \eqn{\nu_j^2} is the prior variance of the coefficient conditional
+#' on \eqn{\gamma_j=1}. While the standard approach to variable selection is to
+#' assign independent Bernoulli priors to the \eqn{\gamma_j} variables,
+#' \code{multimetab} allows specifying a Markov random field (MRF) prior that
+#' that induces relationships between which variables are selected and which are not.
+#' Specifically, the MRF prior used in this package is of the form
+#' \eqn{Pr(\gamma)\propto\exp(\omega + \eta\gamma^\prime R\gamma)}, where
+#' \eqn{\gamma=(\gamma_1,\dots,\gamma_p)^\prime}. The \eqn{p\times p} relationship matrix
+#' \eqn{R} is a symmetric positive definite matrix with non-negative entries and
+#' diagonal zero. The prior is designed so that if \eqn{R_{j_1,j_2}} is positive,
+#' then \eqn{X_{j_1}} and \eqn{X_{j_1}} have a higher probability of being selected
+#' together by the model rather than singly. The parameter \eqn{\omega} represents the
+#' overall sparseness of the model, and the parameter \eqn{\eta} controls the
+#' degree of \eqn{R}'s influence on variable selection. For models with \eqn{\eta=0},
+#' the variable selection priors are independent across variables, and \eqn{expit(\omega)}
+#' is the prior probability that a given covariate is associated with the outcome.
+#'
+#' The purpose of this function is to provide a simple method for choosing \eqn{\eta}
+#' that does not depend on the observed data. The function works as follows. Suppose
+#' we are planning to use the prior \eqn{(\omega=\omega_1,\eta=\eta_1)}, but we have
+#' not yet chosen \eqn{eta_1}. Let \eqn{q^*} denote the \code{quantile}
+#' percentile of the prior model size when \eqn{\omega= logit(2 \times expit(\omega_1))}
+#' and \eqn{\eta=0}. Then \eqn{\eta} is chosen so that the \code{quantile}
+#' percentile of the model size under a \eqn{(\omega_1,\eta_1)} prior is \eqn{q^*}
+#' as well. By default, \eqn{quantile=0.95}, and \eqn{\eta} is determined so that the
+#' \eqn{(\omega_1,\eta_1)} prior has the same 95th percentile model size as the
+#' \eqn{(logit(2 \times expit(\omega_1)),0)} prior.
+#'
+#' Determining the \eqn{\eta} that satisfies this rule requires sampling from the
+#' prior distribution using Metropolis-Hastings for a variety of candidate values.
+#'
+#'
+#'
+#' @returns A value
+#' @export
+#'
 get_eta_simple <-
-  function(omega, R, etas_try, burnin = 10000,
-           draws = 30000, thinning = 5, quantile = 0.95){
+  function(omega, R, etas_try = seq(0.1,4, by = 0.1),
+           burnin = 10000, draws = 30000, thinning = 5,
+           quantile = 0.95){
 
     out <-
       get_prior_stat(omega, etas_try, R, draws = draws,
@@ -9,7 +73,7 @@ get_eta_simple <-
 
     # Use out to determine prior.
     p <- ncol(R)
-    target <- qbinom(quantile, p, prob = logit(2 * expit(omega)))
+    target <- qbinom(p = quantile, size = p, prob = (2 * expit(omega)))
     eta_indices <- which(out$quantile < target)
     if (length(eta_indices) == 0) stop("No etas found. Try new eta_list.")
     max(etas_try[eta_indices])

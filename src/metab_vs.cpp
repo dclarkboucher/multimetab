@@ -326,7 +326,7 @@ void bvs_mcmc(
     bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples,
     arma::mat& gamma_samples, arma::vec& sigma2_samples,
     arma::vec& delta_samples, arma::vec& rho_samples,
-    arma::vec& acceptance, arma::vec& moves, int& pt_check, int pmax, int pmax_draws
+    arma::vec& acceptance, arma::vec& moves, arma::vec& pt_check, int pmax, int pmax_draws
 ){
 
   // Set up
@@ -388,14 +388,14 @@ void bvs_mcmc(
   // Adaptation
   // (adapt_prop: proportion of burn-in to use in adaptation)
   int adapt_point = int(burnin * (1 - adapt_prop));
-  arma::mat adapt_beta_storage(p, burnin - adapt_point);
+  arma::mat adapt_beta_storage(burnin - adapt_point, p);
   arma::vec adapt_beta_mean(p, arma::fill::zeros);
   arma::vec beta_positive_recent = beta;
   arma::vec beta_vec_temp(burnin - adapt_point);
   arma::uvec which_betas(burnin - adapt_point);
 
   // Things for phase transition check
-  int size_counter;
+  int size_counter = 0;
 
   // Main sampler
   for (int r = 0; r < total_draws; r++){
@@ -449,7 +449,7 @@ void bvs_mcmc(
         for (int j = 0; j < p; j++){
 
           proposal_mean(j) = 0;
-          beta_vec_temp = adapt_beta_storage.row(j);
+          beta_vec_temp = adapt_beta_storage.row(j).t();
           which_betas = find(beta_vec_temp != 0);
           if (which_betas.n_elem > 0){
             proposal_mean(j) = mean(beta_vec_temp.elem(which_betas));
@@ -457,6 +457,7 @@ void bvs_mcmc(
 
 
         }
+        // Rprintf("storage3: %f \n", 1.0);
       }
     }
 
@@ -477,7 +478,7 @@ void bvs_mcmc(
     }
 
     if (size_counter > pmax_draws){
-      pt_check = 1;
+      pt_check(0) = 1;
       break;
     }
     // Refine betas

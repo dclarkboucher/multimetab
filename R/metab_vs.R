@@ -5,7 +5,8 @@
 #' @param psi Numeric detection limit (optional). If specified, y values below this
 #' value will be treated as left-censored values from the skewed normal distribution.
 #' @param R Relationship matrix for Markov Random Field variable selection prior (optional).
-#' If specified, must be a symmetric numeric matrix with diagonal zero. If not specified, the
+#' If specified, must be a symmetric non-negative matrix with diagonal zero and
+#' dimension \code{ncol(X)}. If not specified, the
 #' variable selection prior will be independent across predictors. See details.
 #' @param hyper_params List of hyper-parameters for the MCMC. See details.
 #' @param burnin Number of burnin draws for the MCMC.
@@ -30,7 +31,8 @@
 #' @param pmax_draws Used with \code{pmax} to prevent phase transition. Default is \code{10}.
 #'
 #' @return List containing the following components:
-#'
+#' @useDynLib multimetab
+#' @importFrom Rcpp evalCpp
 #'
 #'
 #' @export
@@ -65,56 +67,74 @@ metab_vs <-
            adapt_prop = 0.25, theta2 = 2, vs = TRUE, pmax = ncol(X),
            pmax_draws = 10){
 
+    # should maybe make theta2 a hyper-parameter
+    # OR have one function used to create mcmc settings and one
+    # function to create hyper-parameters. "control" like function, e.g.
+    # Also, should this function determine eta by itself?
+    # Maybe get_hyper_params function should have options for how to determine
+    # eta. But then you would have to supply all the data.
 
-  if (is.null(hyper_params)){
-    message("Using default hyper parameters")
-    hyper_params <-
-      list(
-        nu2_0 = 5^2,
-        nu2_d = 5^2,
-        nu2 = rep(2^2, p),
-        xi_0 = 5,
-        sigma2_0 = 4,
-        omega = logit(0.05),
-        eta = 0
+    n <- length(y)
+    p <- ncol(X)
 
+    if (is.null(hyper_params)){
+      message("Using default hyper parameters")
+      hyper_params <-
+        list(
+          nu2_0 = 5^2,
+          nu2_d = 5^2,
+          nu2 = rep(2^2, p),
+          xi_0 = 5,
+          sigma2_0 = 4,
+          omega = logit(0.05),
+          eta = 0,
+          rho_0 = 2 * 0.9,
+          rho_1 = 2 * 0.1
+
+        )
+
+
+    }
+
+    if (nrow(X) != n) stop ("Incompatible dimensions")
+    if (p != nrow(R) | p != ncol(R)) stop("Incompatible dimensions")
+
+    total_draws = draws + burnin
+    total_keep = floor(draws / thinning)
+
+    # Storage objects
+    delta_samples <- numeric(total_keep)
+    rho_samples <- numeric(total_keep)
+    sigma2_samples <- numeric(total_keep)
+    moves <- numeric(total_keep)
+    acceptance <- numeric(total_keep)
+    beta0_samples <- numeric(total_keep)
+    gamma_samples <- matrix(0, total_keep, p)
+    beta_samples <- matrix(0, total_keep, p)
+    pt_check <- numeric(1)
+
+    bvs_mcmc(
+      y = y, X = X, psi = psi, hyper_params = hyper_params,
+      R = R, theta2 = theta2, reps = draws, burnin = burnin,
+      thinning = thinning, infer_delta = model_skewness,
+      refine_betas = refine_betas, adaptive = adaptive, vs = vs,
+      adapt_prop = adapt_prop, beta0_samples = beta0_samples,
+      beta_samples = beta_samples, gamma_samples = gamma_samples,
+      sigma2_samples = sigma2_samples, delta_samples = delta_samples,
+      rho_samples = rho_samples, acceptance = acceptance, moves = moves,
+      pt_check = pt_check, pmax = pmax, pmax_draws = pmax_draws
+    )
+
+    if (pt_check){
+      message("Algorithm stopped early to prevent phase transition.")
+      return(
+        list(
+          phase_transition = pt_check
+        )
       )
 
+    }
 
-  }
-
-  n <- length(y)
-  p <- ncol(X)
-  if (nrow(X) != n) stop ("Incompatible dimensions")
-  if (p != nrow(R) | p != ncol(R)) stop("Incompatible dimensions")
-
-  total_draws = draws + burnin
-  total_keep = floor(draws / thinning)
-
-  # Storage objects
-  delta_samples <- numeric(total_keep)
-  rho_samples <- numeric(total_keep)
-  sigma2_samples <- numeric(total_keep)
-  moves <- numeric(total_keep)
-  acceptance <- numeric(total_keep)
-  beta0_samples <- numeric(total_keep)
-  gamma_samples <- matrix(0, total_keep, p)
-  beta_samples <- matrix(0, total_keep, p)
-  pt_check <- numeric(1)
-
-  bvs_mcmc(
-    y = y, X = X, psi = psi, hyper_params = hyper_params,
-    R = R, theta2 = theta2, reps = draws, burnin = burnin,
-    thinning = thinning, infer_delta = model_skewness,
-    refine_betas = refine_betas, adaptive = adaptive, vs = vs,
-    adapt_prop = adapt_prop, beta0_samples = beta0_samples,
-    beta_samples = beta_samples, gamma_samples = gamma_samples,
-    sigma2_samples = sigma2_samples, delta_samples = delta_samples,
-    rho_samples = rho_samples, acceptance = acceptance, moves = moves,
-    pt_check, pmax = pmax, pmax_draws = pmax_draws
-  )
-
-  return(
     list(
       beta = beta_samples,
       gamma = gamma_samples,
@@ -127,5 +147,5 @@ metab_vs <-
       phase_transition = pt_check
 
     )
-  )
-}
+
+  }
