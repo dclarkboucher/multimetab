@@ -7,6 +7,7 @@
 metab_vs(
   y,
   X,
+  C = NULL,
   psi,
   R = matrix(0, ncol(X), ncol(X)),
   hyper_params = NULL,
@@ -15,9 +16,11 @@ metab_vs(
   thinning = 1,
   refine_betas = TRUE,
   model_skewness = TRUE,
+  type = c("MH", "gibbs"),
   adaptive = FALSE,
   adapt_prop = 0.25,
   theta2 = 2,
+  psamp = ceiling(p/5),
   vs = TRUE,
   pmax = ncol(X),
   pmax_draws = 10
@@ -26,7 +29,12 @@ metab_vs(
 \arguments{
 \item{y}{Numeric vector containing observations of the outcome variable.}
 
-\item{X}{Numeric matrix containing observations of the predictor variables.}
+\item{X}{Numeric matrix containing observations of the predictor variables. Rpws
+are the subjects and columns are the variables.}
+
+\item{C}{Optional numeric matrix containing observations of the covariates /
+confounding variables. Rows are the the subjects and columns are the variables.
+If provided, should NOT include an intercept term.}
 
 \item{psi}{Numeric detection limit (optional). If specified, y values below this
 value will be treated as left-censored values from the skewed normal distribution.}
@@ -50,6 +58,9 @@ separately from the gamma parameters using a Gibbs sampler. Default is TRUE.}
 
 \item{model_skewness}{Logical value indicating whether to use the skew-normal
 distribution rather than the normal distribution. Default is TRUE.}
+
+\item{type}{Sampling scheme used for variable selection. Either \code{"MH"}
+for Metropolis-Hastings (the default) or \code{"gibbs"} for Gibbs sampling.}
 
 \item{adaptive}{Logical value indicating whether to tune the Metropolis-Hastings
 parameter based on samples drawn during the burnin stage of the MCMC. Default

@@ -34,6 +34,8 @@ void update_beta0(
     const double& nu2_0
 ){
 
+  // when u=0, the sole purpose of y_star is to impute u without needing the
+  // cdf. So the u=0 cases can be ignored.
   double A = 1/nu2_0 + sum(u) / sigma2;
   double a = sum(u % (y_star - delta * z - X_beta)) / sigma2;
   beta0 = R::rnorm(a / A, pow(A, -0.5));
@@ -153,18 +155,21 @@ void update_y_star(
   }
 }
 
-void refine_beta(
+void refine_beta( // Might want to change this to only use u==1 cases.
     arma::vec& beta,
+    const arma::vec& u,
     const arma::vec& y_star,
     const double& beta0,
     const arma::mat& X,
-    const arma::mat& XtX,
     const arma::vec& gamma,
     const double& sigma2,
     const double& delta,
     const arma::vec& z,
     const arma::mat& nu2_inv_mat
 ){
+
+  arma::mat X_sub = X.rows(find(u == 1));
+  arma::mat XtX = X_sub.t() * X_sub;
   int p1 = int(sum(gamma));
   if (p1 > 0){
     // might be able to simply this code to reduce copying
@@ -172,7 +177,7 @@ void refine_beta(
     arma::vec y_use = y_star - beta0 - delta * z;
     arma::mat L_0 = nu2_inv_mat.submat(which_beta, which_beta) +
       XtX.submat(which_beta, which_beta) / sigma2;
-    L_0 = L_0.i();
+    L_0 = inv_sympd(L_0);
     beta.elem(which_beta) =
       mvnrnd(L_0 * (X.cols(which_beta).t() * y_use / sigma2), L_0);
   }
@@ -187,7 +192,7 @@ double expit(double x){
 
 void update_gamma_beta(
     arma::vec& beta,
-    arma::vec& gamma,
+    arma::vec& gamma_p,
     int& decision,
     int& move,
     const arma::vec& y_star,
@@ -204,8 +209,8 @@ void update_gamma_beta(
 ){
 
   // Determine move
-  int p = gamma.n_elem;
-  int p1 = int(sum(gamma));
+  int p = gamma_p.n_elem;
+  int p1 = int(sum(gamma_p));
   if (p1 == 0){
     move = 0; // Add operation
 
@@ -218,8 +223,8 @@ void update_gamma_beta(
   }
 
   // Preliminary things
-  arma::uvec which_gamma_1 = find(gamma == 1);
-  arma::uvec which_gamma_0 = find(gamma == 0);
+  arma::uvec which_gamma_1 = find(gamma_p == 1);
+  arma::uvec which_gamma_0 = find(gamma_p == 0);
   double beta_j_proposal;
   double log_lik_ratio;
   double prior_ratio;
@@ -240,7 +245,7 @@ void update_gamma_beta(
       arma::log_normpdf(y_star, current_mean , sigma_vec)));
 
     prior_ratio =
-      exp(omega + 2 * eta * sum(R.col(j) % gamma)) *
+      exp(omega + 2 * eta * sum(R.col(j) % gamma_p)) *
       arma::normpdf(beta_j_proposal, 0.0, pow(nu2(j), 0.5));
     proposal_ratio =
       ((p - p1) * 1.0) / ((p1 + 1) * 1.0) / arma::normpdf(beta_j_proposal, proposal_mean(j), pow(theta2, 0.5));
@@ -251,7 +256,7 @@ void update_gamma_beta(
     alpha = prior_ratio * proposal_ratio * exp(log_lik_ratio);
     if (decider < alpha){
       beta(j) = beta_j_proposal;
-      gamma(j) = 1;
+      gamma_p(j) = 1;
       decision = 1;
     }
 
@@ -264,7 +269,7 @@ void update_gamma_beta(
       arma::log_normpdf(y_star, current_mean , sigma_vec)));
 
     prior_ratio =
-      exp(-omega - 2 * eta * sum(R.col(j) % gamma)) /
+      exp(-omega - 2 * eta * sum(R.col(j) % gamma_p)) /
         arma::normpdf(beta(j), 0.0, pow(nu2(j), 0.5));
 
     proposal_ratio =
@@ -276,7 +281,7 @@ void update_gamma_beta(
     alpha = prior_ratio * proposal_ratio * exp(log_lik_ratio);
     if (decider < alpha){
       beta(j) = 0;
-      gamma(j) = 0;
+      gamma_p(j) = 0;
       decision = 1;
     }
 
@@ -298,7 +303,7 @@ void update_gamma_beta(
       );
 
     prior_ratio =
-      exp(2 * eta * (sum((R.col(j) - R.col(k)) % gamma) - R(k,j))) *
+      exp(2 * eta * (sum((R.col(j) - R.col(k)) % gamma_p) - R(k,j))) *
       arma::normpdf(beta_j_proposal, 0.0, pow(nu2(j), 0.5)) /
         arma::normpdf(beta(k), 0.0, pow(nu2(k), 0.5));
 
@@ -309,9 +314,9 @@ void update_gamma_beta(
     alpha = prior_ratio * proposal_ratio * exp(log_lik_ratio);
     if (decider < alpha){
       beta(j) = beta_j_proposal;
-      gamma(j) = 1;
+      gamma_p(j) = 1;
       beta(k) = 0;
-      gamma(k) = 0;
+      gamma_p(k) = 0;
       decision = 1;
     }
 
@@ -319,29 +324,99 @@ void update_gamma_beta(
 
 }
 
+
+void update_gamma_beta_gibbs(
+    arma::vec& beta,
+    arma::vec& gamma_p,
+    const arma::vec& y_star,
+    const arma::vec& u,
+    const arma::mat& X,
+    arma::vec& current_mean,
+    const arma::vec& sigma_vec,
+    const arma::mat& R,
+    const double& omega,
+    const double& eta,
+    const arma::vec& nu2,
+    int psamp
+){
+
+  int p = gamma_p.n_elem;
+  double prob1;
+  // double lik1;
+  // double lik0;
+  double lik_ratio;
+  int j;
+  double gamma_j;
+  arma::vec beta_latent(p);
+
+  // Update a subset of the gammas.
+  arma::uvec which_update(psamp);
+  which_update = arma::randperm(p,psamp);
+  for (int k = 0; k < psamp; k++){
+
+    j = which_update(k);
+    if (gamma_p(j) == 0.0){
+      beta_latent(j) = R::rnorm(0.0, pow(nu2(j), 0.5));
+    } else{
+      beta_latent(j) = beta(j);
+    }
+
+    prob1 = expit(omega + 2 * eta * sum(R.col(j) % gamma_p));
+    // lik1 = exp(sum(
+    //   u % arma::log_normpdf(y_star,
+    //                         current_mean + (1.0 - gamma_p(j)) * beta_latent(j) * X.col(j),
+    //                         sigma_vec)));
+    // lik0 = exp(sum(
+    //   u % arma::log_normpdf(y_star,
+    //                         current_mean - gamma_p(j) * beta_latent(j) * X.col(j),
+    //                         sigma_vec)));
+
+    lik_ratio = exp(sum(
+      u % (arma::log_normpdf(y_star,current_mean - gamma_p(j) * beta_latent(j) * X.col(j),sigma_vec) -
+           arma::log_normpdf(y_star,current_mean + (1.0 - gamma_p(j)) * beta_latent(j) * X.col(j),sigma_vec)
+             )));
+
+    // prob1 =  lik1 * prob1 / (lik1 * prob1 + lik0 * (1 - prob1));
+    prob1 = prob1 / (prob1 + lik_ratio * (1 - prob1));
+
+    // prob1 = 1.0 / (1.0 + ((lik0/lik1) * ((1-prob1) /prob1)));
+    gamma_j = R::runif(0.0, 1.0) <= prob1 ? 1.0 : 0.0;
+    current_mean = current_mean + (gamma_j - gamma_p(j)) * beta_latent(j) * X.col(j);
+    gamma_p(j) = gamma_j;
+    beta(j) = gamma_j * beta_latent(j);
+
+  }
+
+}
+
 // [[Rcpp::export]]
 void bvs_mcmc(
-    arma::vec y, arma::mat X, double psi, List hyper_params, arma::mat R, double theta2,
+    arma::vec y, arma::mat X, int s, double psi, List hyper_params, arma::mat R, double theta2,
     int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive,
     bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples,
     arma::mat& gamma_samples, arma::vec& sigma2_samples,
     arma::vec& delta_samples, arma::vec& rho_samples,
-    arma::vec& acceptance, arma::vec& moves, arma::vec& pt_check, int pmax, int pmax_draws
+    arma::vec& acceptance, arma::vec& moves, arma::vec& pt_check,
+    int pmax, int pmax_draws, bool gibbs, int psamp
 ){
 
   // Set up
   int n = y.n_elem;
-  int p = X.n_cols;
+  int p = X.n_cols - s; // Number of predictors
   arma::uvec which_missing = find(y < psi);
   arma::uvec which_present = find(y >= psi);
   int n_zero = which_missing.n_elem;
-  arma::mat XtX = X.t() * X;
   int total_draws = burnin + reps;
   int r_sub;
   if (!vs){
     adaptive = vs;
     refine_betas = !vs;
   }
+
+  if (gibbs || s > 0){
+    refine_betas = true;
+  }
+
   int decision = 1;
   int move = 5;
 
@@ -350,12 +425,19 @@ void bvs_mcmc(
   double rho_1 = hyper_params["rho_1"];
   double nu2_0 = hyper_params["nu2_0"];
   double nu2_d = hyper_params["nu2_d"];
-  arma::vec nu2 = hyper_params["nu2"];
+  arma::vec nu2_x = hyper_params["nu2"];
+  arma::vec nu2(p+s, arma::fill::zeros);
+  nu2.head(p) = nu2_x;
+  arma::vec nu2_c = hyper_params["nu2_c"];
+  if (s > 0){
+    nu2.tail(s) = nu2_c;
+  }
+
   double xi_0 = hyper_params["xi_0"];
   double sigma2_0 = hyper_params["sigma2_0"];
   double omega = hyper_params["omega"];
   double eta = hyper_params["eta"];
-  arma::mat nu2_inv_mat(p, p, arma::fill::zeros);
+  arma::mat nu2_inv_mat(p+s, p+s, arma::fill::zeros);
   nu2_inv_mat.diag() =  1/nu2;
 
   // Initial values
@@ -370,16 +452,17 @@ void bvs_mcmc(
   if (infer_delta){
     delta = mean(y.elem(which_present)) - beta0;
   }
-  arma::vec gamma(p, arma::fill::ones);
-  arma::vec beta(p, arma::fill::zeros);
-  for (int j = 0; j < p; j++){
-    if (vs){
+  arma::vec gamma(p+s, arma::fill::ones);
+  arma::vec beta(p+s, arma::fill::zeros);
+  for (int j = 0; j < p + s; j++){
+    if (vs && j < p){
       gamma(j) = R::rbinom(1, expit(omega));
     }
 
-    if (gamma(j) == 1) beta(j) = R::rnorm(0.0, 0.5);
+    if (gamma(j) == 1) beta(j) = R::rnorm(0.0, 0.5 * pow(theta2, 0.5));
   }
 
+  arma::vec gamma_p = gamma.head(p);
   arma::vec X_beta = X * beta;
   double sigma2 = var(y.elem(which_present));
   arma::vec current_mean = X_beta + beta0 + delta * z;
@@ -387,6 +470,7 @@ void bvs_mcmc(
 
   // Adaptation
   // (adapt_prop: proportion of burn-in to use in adaptation)
+  if (gibbs) adaptive = false;
   int adapt_point = int(burnin * (1 - adapt_prop));
   arma::mat adapt_beta_storage(burnin - adapt_point, p);
   arma::vec adapt_beta_mean(p, arma::fill::zeros);
@@ -425,10 +509,6 @@ void bvs_mcmc(
     update_sigma2(sigma2, y_star, u, current_mean, xi_0, sigma2_0);
 
     // Adaptation check
-    // Throughout burnin: most recent non-zero beta is proposal mean
-    // After burnin: proposal mean is the average nonzero beta from the last
-    // 25% of the burnin draws
-    // Code for this is wrong - maybe an indexing error
     if (adaptive){
 
       // Storage of betas
@@ -464,14 +544,26 @@ void bvs_mcmc(
     // Update beta and gamma
     if (vs){
       sigma_vec = arma::ones<arma::vec>(n) * pow(sigma2,0.5);
-      update_gamma_beta(
-        beta,gamma,decision,move,y_star,u,X,current_mean,sigma_vec,nu2,R,
-        omega,eta,proposal_mean,theta2
-      );
+      if (gibbs){
+
+        update_gamma_beta_gibbs(
+          beta,gamma_p,y_star,u,X,current_mean,sigma_vec,R,
+          omega,eta,nu2,psamp
+        );
+
+      } else {
+        update_gamma_beta(
+          beta,gamma_p,decision,move,y_star,u,X,current_mean,sigma_vec,nu2,R,
+          omega,eta,proposal_mean,theta2
+        );
+      }
+
+      gamma.head(p) = gamma_p;
+
     }
 
     // Check for possible phase transition
-    if (int(sum(gamma)) > pmax){
+    if (int(sum(gamma_p)) > pmax){
       size_counter++;
     } else {
       size_counter = 0;
@@ -481,9 +573,10 @@ void bvs_mcmc(
       pt_check(0) = 1;
       break;
     }
+
     // Refine betas
     if (refine_betas){
-      refine_beta(beta,y_star,beta0,X,XtX,gamma,sigma2,
+      refine_beta(beta,u,y_star,beta0,X,gamma,sigma2,
                     delta,z,nu2_inv_mat);
     }
 

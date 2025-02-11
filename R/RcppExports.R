@@ -5,7 +5,7 @@ get_prior_stat <- function(omega, etas, R, draws, burnin, thin, quantile) {
     .Call('_multimetab_get_prior_stat', PACKAGE = 'multimetab', omega, etas, R, draws, burnin, thin, quantile)
 }
 
-bvs_mcmc <- function(y, X, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws) {
-    invisible(.Call('_multimetab_bvs_mcmc', PACKAGE = 'multimetab', y, X, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws))
+bvs_mcmc <- function(y, X, s, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws, gibbs, psamp) {
+    invisible(.Call('_multimetab_bvs_mcmc', PACKAGE = 'multimetab', y, X, s, psi, hyper_params, R, theta2, reps, burnin, thinning, infer_delta, refine_betas, adaptive, vs, adapt_prop, beta0_samples, beta_samples, gamma_samples, sigma2_samples, delta_samples, rho_samples, acceptance, moves, pt_check, pmax, pmax_draws, gibbs, psamp))
 }
 

@@ -1,7 +1,11 @@
 #' Bayesian variable selection for metabolite outcomes
 #'
 #' @param y Numeric vector containing observations of the outcome variable.
-#' @param X Numeric matrix containing observations of the predictor variables.
+#' @param X Numeric matrix containing observations of the predictor variables. Rpws
+#' are the subjects and columns are the variables.
+#' @param C Optional numeric matrix containing observations of the covariates /
+#' confounding variables. Rows are the the subjects and columns are the variables.
+#' If provided, should NOT include an intercept term.
 #' @param psi Numeric detection limit (optional). If specified, y values below this
 #' value will be treated as left-censored values from the skewed normal distribution.
 #' @param R Relationship matrix for Markov Random Field variable selection prior (optional).
@@ -17,6 +21,8 @@
 #' separately from the gamma parameters using a Gibbs sampler. Default is TRUE.
 #' @param model_skewness Logical value indicating whether to use the skew-normal
 #' distribution rather than the normal distribution. Default is TRUE.
+#' @param type Sampling scheme used for variable selection. Either \code{"MH"}
+#' for Metropolis-Hastings (the default) or \code{"gibbs"} for Gibbs sampling.
 #' @param theta2 Sampling variance of the proposed beta in the Metropolis-Hastings. If adaptive,
 #' this parameter is updated based on the last adapt_prop of the burnin draws.
 #' @param adaptive Logical value indicating whether to tune the Metropolis-Hastings
@@ -59,12 +65,12 @@
 #'
 #'
 metab_vs <-
-  function(y, X, psi,
+  function(y, X, C = NULL, psi,
            R = matrix(0,ncol(X), ncol(X)),
            hyper_params = NULL, burnin, draws, thinning = 1,
-           refine_betas = TRUE, model_skewness = TRUE,
+           refine_betas = TRUE, model_skewness = TRUE, type = c("MH", "gibbs"),
            adaptive = FALSE,
-           adapt_prop = 0.25, theta2 = 2, vs = TRUE, pmax = ncol(X),
+           adapt_prop = 0.25, theta2 = 2, psamp = ceiling(p / 5), vs = TRUE, pmax = ncol(X),
            pmax_draws = 10){
 
     # should maybe make theta2 a hyper-parameter
@@ -76,14 +82,26 @@ metab_vs <-
 
     n <- length(y)
     p <- ncol(X)
+    if (!is.null(C)){
+      s <- ncol(C)
+      XC <- cbind(X, C)
+    } else{
+      s <- 0
+      XC <- X
+      hyper_params$nu2_c = 1
+    }
+
+    type <- match.arg(type)
+    gibbs <- type == "gibbs"
 
     if (is.null(hyper_params)){
       message("Using default hyper parameters")
       hyper_params <-
         list(
-          nu2_0 = 5^2,
-          nu2_d = 5^2,
+          nu2_0 = 10^2,
+          nu2_d = 10^2,
           nu2 = rep(2^2, p),
+          nu2_c = rep(10^2, s),
           xi_0 = 5,
           sigma2_0 = 4,
           omega = logit(0.05),
@@ -92,6 +110,7 @@ metab_vs <-
           rho_1 = 2 * 0.1
 
         )
+
 
 
     }
@@ -114,7 +133,7 @@ metab_vs <-
     pt_check <- numeric(1)
 
     bvs_mcmc(
-      y = y, X = X, psi = psi, hyper_params = hyper_params,
+      y = y, X = XC, s = s, psi = psi, hyper_params = hyper_params,
       R = R, theta2 = theta2, reps = draws, burnin = burnin,
       thinning = thinning, infer_delta = model_skewness,
       refine_betas = refine_betas, adaptive = adaptive, vs = vs,
@@ -122,7 +141,8 @@ metab_vs <-
       beta_samples = beta_samples, gamma_samples = gamma_samples,
       sigma2_samples = sigma2_samples, delta_samples = delta_samples,
       rho_samples = rho_samples, acceptance = acceptance, moves = moves,
-      pt_check = pt_check, pmax = pmax, pmax_draws = pmax_draws
+      pt_check = pt_check, pmax = pmax, pmax_draws = pmax_draws,
+      gibbs = gibbs, psamp = psamp
     )
 
     if (pt_check){
@@ -135,9 +155,10 @@ metab_vs <-
 
     }
 
+    out <-
     list(
-      beta = beta_samples,
-      gamma = gamma_samples,
+      beta = beta_samples[,1:p],
+      gamma = gamma_samples[,1:p],
       acceptance = acceptance,
       move = moves,
       beta0 = beta0_samples,
@@ -145,7 +166,11 @@ metab_vs <-
       sigma2 = sigma2_samples,
       rho = rho_samples,
       phase_transition = pt_check
-
     )
+    if (s > 0){
+      out$beta_c = beta_samples[,p + seq_len(s)]
+    }
+
+    out
 
   }
