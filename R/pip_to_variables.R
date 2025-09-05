@@ -25,7 +25,7 @@
 #' The latter approach is based on the Bayesian FDR method proposed
 #' by Newton et al. (2004, Biostatistics).
 #'
-#' @value A logical object of the same dimensions as \code{pip} indicating
+#' @returns A logical object of the same dimensions as \code{pip} indicating
 #' selected and non-selected variables.
 #' @export
 #'

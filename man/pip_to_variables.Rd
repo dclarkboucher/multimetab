@@ -17,6 +17,10 @@ selected if their PIP is at least \code{cutoff}.}
 
 \item{fdr}{The FDR level when \code{method="fdr"}. Default is 0.05.}
 }
+\value{
+A logical object of the same dimensions as \code{pip} indicating
+selected and non-selected variables.
+}
 \description{
 Select variables based on posterior inclusion probabilities (PIPs)
 }

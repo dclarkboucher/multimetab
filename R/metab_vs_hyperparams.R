@@ -1,13 +1,13 @@
 #' Generate hyper-parameters for Bayesian variable selection
 #'
-#' @param nu2_0 Prior variance of the intercept, \code{\beta_0\sim\mathcal{N}(0,\nu_0^2)}.
+#' @param nu2_0 Prior variance of the intercept, \eqn{\beta_0\sim\mathcal{N}(0,\nu_0^2)}.
 #' Default is 1.0
-#' @param nu2_d Prior variance of the delta, \code{\delta\sim\mathcal{N}(0,\nu_d^2)}.
-#' @param nu2 Prior variance of the regression coefficients of each \code{\X_{ji}},
-#' \code{\beta_j\sim\mathcal{N}(0,\nu^2)}, \code{j\in 1,\dots,p}.
+#' @param nu2_d Prior variance of the delta, \eqn{\delta\sim\mathcal{N}(0,\nu_d^2)}.
+#' @param nu2 Prior variance of the regression coefficients of each \eqn{\X_{ji}},
+#' \eqn{\beta_j\sim\mathcal{N}(0,\nu^2)}, \eqn{j\in 1,\dots,p}.
 #' @param lambda2 A numeric vector of length equal to the number of confounding
 #' variables in \code{C}, representing the variance in the prior
-#' \code{\alpha_j\sim\mathcal{N}(0,\lambda_j^2)}, \code{j\in 1,\dots,s}. Default
+#' \eqn{\alpha_j\sim\mathcal{N}(0,\lambda_j^2)}, \eqn{j\in 1,\dots,s}. Default
 #' is \code{10^2} which is a reasonably uninformative prior if \code{C} is
 #' standardized.
 #' @param sigma2_prior Hyperparameters for the \eqn{\mathcal{IG}(0.5\xi_0,0.5\xi_0\sigma^2_0)}
@@ -17,14 +17,14 @@
 #'
 #' @param omega Hyperparameter for MRF hyperprior that controls overall sparsity.
 #' Default is \code{logit(0.01)}, corresponding to a 1% prior inclusion probability
-#' if \code{\eta=0}.
+#' if \eqn{\eta=0}.
 #' @param eta Hyperparameter for MRF hyperprior that controls the degree of
 #' influence of \code{R}. Can be either numeric, in which case \code{eta} is
 #' specified manually, or \code{"calculate"}, in which case the function
 #' [get_eta_simple()] is called to determine a reasonable value of \eqn{eta} as
 #' described in our manuscript. In this case, the matrix \code{R} must be provided.
 #' @param rho_prior Hyperparameters for the \eqn{Beta(\rho_0,\rho_1)} prior on
-#' \eqn{\rho}, with mean \code{\rho_0/(\rho_0 + \rho_1)}. Default is \code{c(1,1)},
+#' \eqn{\rho}, with mean \eqn{\rho_0/(\rho_0 + \rho_1)}. Default is \code{c(1,1)},
 #' equivalent to Uniform(0,1). Can be \code{"adaptive"}, in which case the
 #' prior set to \eqn{5(\sqrt{\bar{W}},1-\sqrt{\bar{W}})}, where \eqn{\bar{W}} is
 #' the proportion of observations that are not missing/censored.
@@ -48,15 +48,13 @@
 #' predictors, with prior inclusion probability \code{expit(omega)}. See [metab_bvs()].
 #'
 #' @returns A list of hyperparameters that can be supplied to [metab_bvs()].
-#' @export
+#'
 #'
 #' @details
 #' The sensibility of the prior hyperparameters depends both on our scientific
 #' expectations and on the scale of the observed data.
 #'
 #'
-#'
-#' @examples
 metab_vs_hyperparams <-
   function(
     method = c("default","tuned"),

@@ -30,15 +30,18 @@ metab_vs(
 }
 \arguments{
 \item{y}{Numeric vector of metabolite measurements. Values will be
-treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.}
+treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.
+Can be "standardized" using \code{\link[=standardize_metab]{standardize_metab()}} for ease of prior specification.}
 
 \item{X}{Numeric matrix of the predictor variables that will
 be considered for variable selection. Rows are the subjects and columns
-are the variables.}
+are the variables. It is recommended to standard continuous variables to have
+mean 0 and variance 1.}
 
 \item{C}{Numeric matrix of confounding variables that are excluded
 from variable selection (optional). Rows are the the subjects and columns are the variables.
-If provided, should NOT include an intercept term.}
+It is recommended to standard continuous variables to have
+mean 0 and variance 1. If provided, should NOT include an intercept term.}
 
 \item{psi}{Numeric value representing the metabolite's detection limit. All
 \code{y} values below \code{psi} will be treated as PMVs and inferred via data

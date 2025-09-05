@@ -23,24 +23,29 @@ metab_vs_hyperparams(
 )
 }
 \arguments{
-\item{method}{Either \code{"default"} (the default, namely) or \code{"tuned"}.
-If \code{"default"}, simple uninformative priors are used for all parameters.
-If \code{"tuned"}, the priors are chosen empirically based on the observed data,
-which must be provided.}
+\item{nu2_0}{Prior variance of the intercept, \eqn{\beta_0\sim\mathcal{N}(0,\nu_0^2)}.
+Default is 1.0}
 
-\item{nu2_0}{Prior variance of the intercept, \code{\beta_0\sim\mathcal{N}(0,\nu_0^2)}. T}
+\item{nu2_d}{Prior variance of the delta, \eqn{\delta\sim\mathcal{N}(0,\nu_d^2)}.}
 
-\item{nu2_d}{Prior variance of the delta, \code{\delta\sim\mathcal{N}(0,\nu_d^2)}.}
+\item{nu2}{Prior variance of the regression coefficients of each \eqn{\X_{ji}},
+\eqn{\beta_j\sim\mathcal{N}(0,\nu^2)}, \eqn{j\in 1,\dots,p}.}
 
-\item{nu2}{Prior variance of the regression coefficients of each \code{\X_{ji}},
-\code{\beta_j\sim\mathcal{N}(0,\nu^2)}, \code{j\in 1,\dots,p}.}
+\item{lambda2}{A numeric vector of length equal to the number of confounding
+variables in \code{C}, representing the variance in the prior
+\eqn{\alpha_j\sim\mathcal{N}(0,\lambda_j^2)}, \eqn{j\in 1,\dots,s}. Default
+is \code{10^2} which is a reasonably uninformative prior if \code{C} is
+standardized.}
 
-\item{lambda2}{Prior variance of the regression coefficients of each \code{\C_{ji}},
-\code{\alpha_j\sim\mathcal{N}(0,\lambda_j^2)}, \code{j\in 1,\dots,p}.}
+\item{omega}{Hyperparameter for MRF hyperprior that controls overall sparsity.
+Default is \code{logit(0.01)}, corresponding to a 1\% prior inclusion probability
+if \eqn{\eta=0}.}
 
-\item{omega}{Hyperparameter of MRF hyperprior that controls overall sparsity}
-
-\item{eta}{Hyperparameter of}
+\item{eta}{Hyperparameter for MRF hyperprior that controls the degree of
+influence of \code{R}. Can be either numeric, in which case \code{eta} is
+specified manually, or \code{"calculate"}, in which case the function
+\code{\link[=get_eta_simple]{get_eta_simple()}} is called to determine a reasonable value of \eqn{eta} as
+described in our manuscript. In this case, the matrix \code{R} must be provided.}
 
 \item{y}{(If \code{method="tuned"}) Numeric vector of metabolite measurements. Values will be
 treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.}
@@ -58,12 +63,30 @@ are the variables.}
 from variable selection (optional). Rows are the the subjects and columns are the variables.
 If provided, should NOT include an intercept term.}
 
+\item{sigma2_prior}{Hyperparameters for the \eqn{\mathcal{IG}(0.5\xi_0,0.5\xi_0\sigma^2_0)}
+prior on \eqn{\sigma^2}. Default is \code{c(3,1)}, which, though weakly informative,
+is only sensible if \eqn{\sigma^2} is expected to be fairly close to 1. It is
+recommended to either standardize \code{Y} as far as possible (since there are missing values)}
+
+\item{rho_prior}{Hyperparameters for the \eqn{Beta(\rho_0,\rho_1)} prior on
+\eqn{\rho}, with mean \eqn{\rho_0/(\rho_0 + \rho_1)}. Default is \code{c(1,1)},
+equivalent to Uniform(0,1). Can be \code{"adaptive"}, in which case the
+prior set to \eqn{5(\sqrt{\bar{W}},1-\sqrt{\bar{W}})}, where \eqn{\bar{W}} is
+the proportion of observations that are not missing/censored.}
+
 \item{R}{(If \code{method="tuned"}) Relationship matrix for Markov Random Field variable selection prior (optional).
 If specified, must be a symmetric non-negative matrix with diagonal zero and
 dimension \code{ncol(X)}. If not specified, the
 variable selection hyperprior will be independent and identically across
 predictors, with prior inclusion probability \code{expit(omega)}. See \code{\link[=metab_bvs]{metab_bvs()}}.}
 }
+\value{
+A list of hyperparameters that can be supplied to \code{\link[=metab_bvs]{metab_bvs()}}.
+}
 \description{
 Generate hyper-parameters for Bayesian variable selection
+}
+\details{
+The sensibility of the prior hyperparameters depends both on our scientific
+expectations and on the scale of the observed data.
 }
