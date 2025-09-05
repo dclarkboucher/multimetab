@@ -38,7 +38,7 @@ meaning every fifth post-burnin draw is retained.}
 with \eqn{\eta=0}. Default (recommended) is 0.95. See details.}
 }
 \value{
-A value
+A value of \code{eta}.
 }
 \description{
 Select 'eta' hyper-parameter for Markov random field prior

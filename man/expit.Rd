@@ -14,7 +14,7 @@ expit(x)
 }
 \description{
 Inverse of the \code{\link{logit}} function, defined as
-\eqn{expit(x) = 1/(1 + exp(-x))}
+\eqn{expit(x) = 1/(1 + \exp(-x))}
 }
 \examples{
 p <- 0.3

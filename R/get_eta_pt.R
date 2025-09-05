@@ -17,6 +17,8 @@
 #' separately from the gamma parameters using a Gibbs sampler. Default is TRUE.
 #' @param model_skewness Logical value indicating whether to use the skew-normal
 #' distribution rather than the normal distribution. Default is TRUE.
+#' @param type Sampling scheme used for variable selection. Either \code{"MH"}
+#' for Metropolis-Hastings (the default) or \code{"gibbs"} for Gibbs sampling.
 #' @param theta2 Sampling variance of the proposed beta in the Metropolis-Hastings. If adaptive,
 #' this parameter is updated based on the last adapt_prop of the burnin draws.
 #' @param adaptive Logical value indicating whether to tune the Metropolis-Hastings
@@ -25,10 +27,13 @@
 #' @param adapt_prop The proportion of burnin draws used to tune the Metropolis-Hastings
 #' parameter.
 #' @param vs Logical value indicating whether to perform variable selection. Default is true.
+#' @param zi Logical value indicating whether to fit a zero-inflated model. Default is true.
 #' @param pmax Upper limit for the number of selected variables. If more than \code{pmax} variable are selected
 #' in \code{pmax_draws} consecutive draws, the algorithm is terminated early to prevent phase transition. The default
 #' value is \code{ncol(X)}, meaning there is no early stopping.
 #' @param pmax_draws Used with \code{pmax} to prevent phase transition. Default is \code{10}.
+#' @param psamp If using Gibbs sampling, the number of selection indicators to update
+#' in each iteration. The default is \code{ceiling(ncol(X)/5)}.
 #' @param eta_tol Error bound for eta. Default is \code{0.1}.
 #' @param percentile_check Percentile used to check for phase transition. The default
 #' is \code{0.1}, which means phase transition is determined
@@ -40,7 +45,8 @@
 #'
 #' @returns The largest \eqn{eta} value such that the model does not experience
 #' phase transition.
-#' @export
+#' @importFrom stats quantile
+#'
 #'
 #'
 get_eta_pt <-
@@ -48,14 +54,18 @@ get_eta_pt <-
            R = matrix(0,ncol(X), ncol(X)),
            hyper_params = NULL, burnin, draws, thinning = 5,
            refine_betas = TRUE, model_skewness = TRUE,
+           type = c("MH", "gibbs"),
            adaptive = FALSE,
-           adapt_prop = 0.25, theta2 = 2, vs = TRUE, pmax = ncol(X),
+           adapt_prop = 0.25, theta2 = 2,
+           psamp = ceiling(ncol(X) / 5),
+           vs = TRUE, zi = TRUE, pmax = ncol(X),
            pmax_draws = 10,
            eta_tol = 0.1,
            percentile_check = 0.10,
            quantile_change_max = 0.05
   ){
 
+    type <- match.arg(type)
     n <- length(y)
     p <- ncol(X)
     if (quantile_change_max <= 0 | quantile_change_max >= 1){
@@ -97,14 +107,15 @@ get_eta_pt <-
     # Start with eta = 0
     out0 <-
       metab_vs(y = y, X = X, psi = psi,
-               R = R, hyper_params = hyper_params,
-               burnin = burnin, draws = draws,
+               R = R, hyper_params = hyper_params, type = type,
+               burnin = burnin, draws = draws, nchains = 1,
                thinning = 1, refine_betas = refine_betas,
                model_skewness = model_skewness,  adaptive = adaptive,
                adapt_prop = adapt_prop, theta2 = theta2,
-               vs = vs, pmax = pmax,
-               pmax_draws = pmax_draws)
-    stat0 <- quantile(colMeans(out0$gamma), percentile_check)
+               vs = vs, zi = zi, pmax = pmax, pmax_draws = pmax_draws,
+               psamp = psamp
+               )
+    stat0 <- stats::quantile(out0$pip, percentile_check)
 
     # Binary search for eta
     min <- 1e-4
@@ -116,16 +127,15 @@ get_eta_pt <-
       hyper_params$eta <- eta_temp
       out <-
         metab_vs(y = y, X = X, psi = psi,
-                 R = R, hyper_params = hyper_params,
+                 R = R, hyper_params = hyper_params, type = type,
                  burnin = burnin, draws = draws,
                  thinning = thinning, refine_betas = refine_betas,
                  model_skewness = model_skewness,  adaptive = adaptive,
                  adapt_prop = adapt_prop, theta2 = theta2,
-                 vs = vs, pmax = pmax,
-                 pmax_draws = pmax_draws)
+                 vs = vs, zi = zi, pmax = pmax, pmax_draws = pmax_draws, psamp = psamp)
 
       if (!out$phase_transition){
-        stat <- quantile(colMeans(out$gamma), percentile_check)
+        stat <- stats::quantile(out$pip, percentile_check)
         if (stat - stat0 > 0.05){
           max <- eta_temp
         } else{

@@ -1,7 +1,7 @@
 #' Logit
 #'
 #' @description
-#' For a probability \eqn{p}, returns \eqn{log(p/(1-p))}.
+#' For a probability \eqn{p}, returns \eqn{\log(p/(1-p))}.
 #'
 #'
 #' @param p A probability \eqn{p}.

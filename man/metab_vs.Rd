@@ -2,47 +2,54 @@
 % Please edit documentation in R/metab_vs.R
 \name{metab_vs}
 \alias{metab_vs}
-\title{Bayesian variable selection for metabolite outcomes}
+\title{Bayesian variable selection for metabolite endpoints}
 \usage{
 metab_vs(
   y,
   X,
   C = NULL,
-  psi,
+  psi = min(y, na.rm = TRUE),
   R = matrix(0, ncol(X), ncol(X)),
   hyper_params = NULL,
   burnin,
   draws,
   thinning = 1,
+  nchains = 1,
+  type = c("gibbs", "metro"),
+  psamp = ncol(X)\%/\%5,
   refine_betas = TRUE,
-  model_skewness = TRUE,
-  type = c("MH", "gibbs"),
   adaptive = FALSE,
   adapt_prop = 0.25,
   theta2 = 2,
-  psamp = ceiling(p/5),
   vs = TRUE,
+  zi = TRUE,
+  model_skewness = TRUE,
   pmax = ncol(X),
   pmax_draws = 10
 )
 }
 \arguments{
-\item{y}{Numeric vector containing observations of the outcome variable.}
+\item{y}{Numeric vector of metabolite measurements. Values will be
+treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.}
 
-\item{X}{Numeric matrix containing observations of the predictor variables. Rpws
-are the subjects and columns are the variables.}
+\item{X}{Numeric matrix of the predictor variables that will
+be considered for variable selection. Rows are the subjects and columns
+are the variables.}
 
-\item{C}{Optional numeric matrix containing observations of the covariates /
-confounding variables. Rows are the the subjects and columns are the variables.
+\item{C}{Numeric matrix of confounding variables that are excluded
+from variable selection (optional). Rows are the the subjects and columns are the variables.
 If provided, should NOT include an intercept term.}
 
-\item{psi}{Numeric detection limit (optional). If specified, y values below this
-value will be treated as left-censored values from the skewed normal distribution.}
+\item{psi}{Numeric value representing the metabolite's detection limit. All
+\code{y} values below \code{psi} will be treated as PMVs and inferred via data
+augmentation. The default is \code{min(y, na.rm =TRUE)}, in which case only
+\code{NA} values of \code{y} will be treated as PMVs.}
 
 \item{R}{Relationship matrix for Markov Random Field variable selection prior (optional).
 If specified, must be a symmetric non-negative matrix with diagonal zero and
 dimension \code{ncol(X)}. If not specified, the
-variable selection prior will be independent across predictors. See details.}
+variable selection hyperprior will be independent and identically across
+predictors, with prior inclusion probability \code{expit(omega)}. See details.}
 
 \item{hyper_params}{List of hyper-parameters for the MCMC. See details.}
 
@@ -50,41 +57,139 @@ variable selection prior will be independent across predictors. See details.}
 
 \item{draws}{Number of post-burnin draws for the MCMC.}
 
-\item{thinning}{Thinning parameter for the MCMC. Default is 1, meaning every
-post-burnin draw is retained.}
+\item{thinning}{Thinning parameter for the MCMC. Default is 5, meaning one in
+every 5 posterior MCMC draws will be retained. Higher values reduce the correlation
+between retained draws.}
 
-\item{refine_betas}{Logical value indicating whether the beta parameters be updated
-separately from the gamma parameters using a Gibbs sampler. Default is TRUE.}
+\item{nchains}{Number of MCMC chains. Default is 1.}
 
-\item{model_skewness}{Logical value indicating whether to use the skew-normal
-distribution rather than the normal distribution. Default is TRUE.}
+\item{type}{Sampling scheme used for variable selection. Either \code{"gibbs"}
+for Gibbs sampling (the default) or \code{"metro"} for Metropolis-Hastings}
 
-\item{type}{Sampling scheme used for variable selection. Either \code{"MH"}
-for Metropolis-Hastings (the default) or \code{"gibbs"} for Gibbs sampling.}
+\item{psamp}{If using Gibbs sampling, the number of selection indicators to update
+in each iteration. 1 in 5 variables are sampled by default.}
 
-\item{adaptive}{Logical value indicating whether to tune the Metropolis-Hastings
-parameter based on samples drawn during the burnin stage of the MCMC. Default
-is false because my code for this isn't working.}
+\item{refine_betas}{Logical indicator for whether the regression coefficients
+from the Metropolis-Hastings algorithm should be re-sampled with an additional
+Gibbs step to improve mixing. Default is \code{TRUE}. If \code{FALSE} (not
+recommended) and \code{type="metro"}, the regression parameters will be updated
+using traditional stochastic search variable selection. If \code{type="metro"},
+ignored.}
+
+\item{adaptive}{Logical value indicating whether to the Metropolis-Hastings
+parameter \code{theta2} should be tuned based on samples drawn during the
+burnin stage of the MCMC. Ignored unless \code{type="metro"}.}
 
 \item{adapt_prop}{The proportion of burnin draws used to tune the Metropolis-Hastings
-parameter.}
+parameter. Ignored unless \code{adaptive=TRUE}.}
 
-\item{theta2}{Sampling variance of the proposed beta in the Metropolis-Hastings. If adaptive,
-this parameter is updated based on the last adapt_prop of the burnin draws.}
+\item{theta2}{Sampling variance of the proposed beta in the Metropolis-Hastings.
+If \code{adaptive = TRUE}, this parameter is chosen adaptively for each parameter
+based on the last \code{adapt_prop} proportion of the burnin draws. Ignored
+unless \code{type="metro"}.}
 
-\item{vs}{Logical value indicating whether to perform variable selection. Default is true.}
+\item{vs}{Logical value indicating whether to perform variable selection. Default is \code{TRUE}.}
 
-\item{pmax}{Upper limit for the number of selected variables. If more than \code{pmax} variable are selected
-in \code{pmax_draws} consecutive draws, the algorithm is terminated early to prevent phase transition. The default
-value is \code{ncol(X)}, meaning there is no early stopping.}
+\item{zi}{Logical value indicating whether to fit a zero-inflated model. Default is \code{TRUE}.}
 
-\item{pmax_draws}{Used with \code{pmax} to prevent phase transition. Default is \code{10}.}
+\item{model_skewness}{Logical value indicating whether to infer the
+skewness parameter. Default is \code{TRUE}. If \code{FALSE}, the parameter
+is fixed at zero and the error term is assumed to be normally distributed.}
+
+\item{pmax}{Upper limit for the number of selected variables. If more than \code{pmax}
+variables are selected in \code{pmax_draws} consecutive draws, the algorithm
+is terminated early and indicates that the phase transition
+boundary has been crossed. This is helpful for checking whether the prior
+specification is inappropriate without needing to run the MCMC scheme to
+convergence.The default value is \code{ncol(X)}, meaning there is no early stopping.}
+
+\item{pmax_draws}{Used jointly with \code{pmax} to prevent phase transition. Default is \code{10}.}
 }
 \value{
-List containing the following components:
+List of the following components:
+\itemize{
+\item \code{samples}: A three-dimensional array of posterior samples organized by draw
+index, chain, and parameter.
+\item \code{beta_hat}: A vector of the posterior means of the regression coefficients conditional
+on their inclusion in the model, averaged over the chains. Variables that were
+never selected will have a value of zero.
+\item \code{pip}: A vector of the posterior inclusion inclusion probabilities, averaged
+over the chains.
+\item \code{estimates}: A matrix of posterior means of each parameter in each chain.
+\item \code{phase_transition}: An indicator of whether the phase transition boundary was
+crossed. Will only equal \code{1} if \code{pmax} was specified and the algorithm
+terminated early.
+}
 }
 \description{
-Bayesian variable selection for metabolite outcomes
+Bayesian variable selection for metabolite endpoints
+}
+\details{
+\subsection{Model Specification}{
+
+\code{metab_vs} is the workhorse function for performing variable selection
+with metabolites as endpoints. Let \eqn{Y_i} be the observed value of the
+metabolite (possibly censored), let \eqn{\tilde{Y}_i} be the true value of the
+metabolite (unknown if \eqn{Y_i} is censored), let \eqn{U_i} be an indicator
+variable for whether \eqn{\tilde{Y}_i} is zero, and let \eqn{V_i} be the true
+value of the metabolite when \eqn{\tilde{Y}_i} is not zero. We assume
+\eqn{U_i} follows a Bernoulli distribution with probability \eqn{\rho}, and
+we model \eqn{V_i} as
+\deqn{V_i=\beta_0+\sum_{j=1}^p X_{ji}\beta_j + \sum_{k=1}^s C_{ki}\alpha_k + \epsilon_i}
+where \eqn{\epsilon_i} follows a skew-normal (SN) distribution with variance
+parameter \eqn{\sigma^2} and skewness parameter \eqn{\delta}, using the
+parameterization by Sahu et al. (2009). We assume that missing values
+arise when \eqn{\tilde{Y}_i<\psi}, where \eqn{\psi} is a positive detection limit
+treated as known. Our primary interest lies in the regression coefficients
+\eqn{\beta_1,\dots,\beta_p}, which represent the associations between the covariates
+\eqn{X_{1i},\dots, X_{pi}} and the non-zero metabolites. We perform variable
+selection among \eqn{X_{1i},\dots, X_{pi}} to determine which variables
+are associated with the metabolite. The framework also allows
+specifying a low-dimensional vector of confounding variables, \eqn{C_{1i},\dots,C_{si}},
+that are fixed in the model and do not undergo variable selection.
+}
+
+\subsection{Prior distributions}{
+
+The proposed framework performs variable selection via spike-and-slab priors of
+the form \eqn{\beta_j=\tilde{\beta}_j\gamma_j}, \eqn{\tilde{\beta}\sim\mathcal{N}(0,\nu^2)},
+\eqn{\gamma_j\in\{0,1\}}. Here, \eqn{\gamma_j} is an indicator variable
+for whether \eqn{\beta_j} is zero. The posterior mean of \eqn{\gamma_j} is
+called the posterior inclusion probability (PIP) and represents the conditional
+probability that \eqn{X_{ji}} is associated with \eqn{V_i} given the data.
+
+The framework optionally places a sophisticated multivariate prior
+distribution, the Markov random field (MRF) prior, on the vector
+\eqn{\gamma=(\gamma_1,\dots,\gamma_p)^T}. Let \eqn{R} (\code{R}) denote
+a non-negative, symmetric \eqn{p\times p} matrix with diagonal zero. The
+prior has the form
+\deqn{P(\gamma)\propto\exp(\omega\sum_j\gamma_j + \eta\gamma^TR\gamma)}
+and is designed such that greater values of \eqn{R_{j,j^\prime}} result in greater
+probability of selecting variables \eqn{j} and \eqn{j^\prime} jointly. This
+is useful when there is prior belief that if one variable is associated with
+the endpoint, then similar variables may be as well.
+Within this prior, the hyper-parameter \eqn{\omega} controls the baseline
+selection probability across all variables. The hyper-parameter \eqn{\omega}
+controls the degree to which \eqn{R} informs variable selection. Whereas
+\eqn{\omega} may be chosen based on prior belief about the proportion
+of predictive variables (for example, setting \code{omega=logit(0.05)}),
+\eqn{\eta} must be chosen carefully to avoid "phase transition behavior", a
+phenomenon in which large \eqn{\eta} cause the model to select almost every
+variable. We recommend choosing \eqn{\eta} using the function \code{\link[=get_eta_simple]{get_eta_simple()}},
+which chooses a reasonable value of \eqn{\eta} based on \eqn{\omega} and
+\eqn{R} and requires little computational burden. Alternatively, one may
+use \code{\link[=get_eta_pt]{get_eta_pt()}} to approximate the lowest \eqn{\eta} value below the
+phase transition point; however, this approach is computationally costly
+since it requires sampling from the posterior distribution.
+If \eqn{R} is not specified or if \eqn{\eta=0}, the MRF prior reduces to a
+traditional independent hyper-prior in which the prior chance that \eqn{\gamma_j=1}
+is \eqn{1/(1+\exp(-\omega))} (\code{expit(omega)}).
+
+For the remaining parameters, we use the standard conjugate priors:
+\eqn{\beta_0\sim \mathcal{N}(0,\nu_0^2)}, \eqn{\sigma^2\sim \mathcal{IG}(0.5\xi_0,0.5\xi_0\sigma^2_0)},
+\eqn{\delta\sim\mathcal{N}(0,\nu_d^2)}, \eqn{\alpha_k\sim\mathcal{N}(0,\lambda_k^2)}, and
+\eqn{\rho\sim\mathcal{Beta}(\rho_0,\rho_1)}.
+}
 }
 \examples{
 # Generate Data

@@ -155,6 +155,7 @@ void update_y_star(
   }
 }
 
+
 void refine_beta( // Might want to change this to only use u==1 cases.
     arma::vec& beta,
     const arma::vec& u,
@@ -168,18 +169,19 @@ void refine_beta( // Might want to change this to only use u==1 cases.
     const arma::mat& nu2_inv_mat
 ){
 
-  arma::mat X_sub = X.rows(find(u == 1));
-  arma::mat XtX = X_sub.t() * X_sub;
+
   int p1 = int(sum(gamma));
   if (p1 > 0){
-    // might be able to simply this code to reduce copying
+    arma::uvec which_u = find(u == 1);
+    arma::mat X_sub = X.rows(which_u);
+    arma::mat XtX = X_sub.t() * X_sub;
     arma::uvec which_beta = find(gamma == 1);
-    arma::vec y_use = y_star - beta0 - delta * z;
+    arma::vec y_use = y_star.elem(which_u) - beta0 - delta * z.elem(which_u);
     arma::mat L_0 = nu2_inv_mat.submat(which_beta, which_beta) +
       XtX.submat(which_beta, which_beta) / sigma2;
     L_0 = inv_sympd(L_0);
     beta.elem(which_beta) =
-      mvnrnd(L_0 * (X.cols(which_beta).t() * y_use / sigma2), L_0);
+      mvnrnd(L_0 * (X_sub.cols(which_beta).t() * y_use / sigma2), L_0);
   }
 }
 
@@ -273,7 +275,7 @@ void update_gamma_beta(
         arma::normpdf(beta(j), 0.0, pow(nu2(j), 0.5));
 
     proposal_ratio =
-      (p1 * 1.0) / (1.0 * (p - p1 + 1)) * arma::normpdf(beta(j), proposal_mean(j), pow(theta2, 0.5));
+      (p1 * 1.0) / (1.0 * (p - p1 + 1.0)) * arma::normpdf(beta(j), proposal_mean(j), pow(theta2, 0.5));
 
     if (p1 == 1) proposal_ratio = proposal_ratio * 3.0;
     if (p1 == p) proposal_ratio = proposal_ratio / 3.0;
@@ -373,8 +375,8 @@ void update_gamma_beta_gibbs(
 
     lik_ratio = exp(sum(
       u % (arma::log_normpdf(y_star,current_mean - gamma_p(j) * beta_latent(j) * X.col(j),sigma_vec) -
-           arma::log_normpdf(y_star,current_mean + (1.0 - gamma_p(j)) * beta_latent(j) * X.col(j),sigma_vec)
-             )));
+        arma::log_normpdf(y_star,current_mean + (1.0 - gamma_p(j)) * beta_latent(j) * X.col(j),sigma_vec)
+      )));
 
     // prob1 =  lik1 * prob1 / (lik1 * prob1 + lik0 * (1 - prob1));
     prob1 = prob1 / (prob1 + lik_ratio * (1 - prob1));
@@ -391,11 +393,12 @@ void update_gamma_beta_gibbs(
 
 // [[Rcpp::export]]
 void bvs_mcmc(
-    arma::vec y, arma::mat X, int s, double psi, List hyper_params, arma::mat R, double theta2,
-    int reps, int burnin, int thinning, bool infer_delta, bool refine_betas, bool adaptive,
-    bool vs, double adapt_prop, arma::vec& beta0_samples, arma::mat& beta_samples,
+    arma::vec y, arma::mat X, int s, double psi, List hyper_params, arma::mat R,
+    double theta2, int reps, int burnin, int thinning, bool infer_delta,
+    bool refine_betas, bool adaptive, bool vs, bool zi, double adapt_prop,
+    arma::vec& beta0_samples, arma::mat& beta_samples,
     arma::mat& gamma_samples, arma::vec& sigma2_samples,
-    arma::vec& delta_samples, arma::vec& rho_samples,
+    arma::vec& delta_samples, arma::vec& rho_samples, arma::mat& beta_c_samples,
     arma::vec& acceptance, arma::vec& moves, arma::vec& pt_check,
     int pmax, int pmax_draws, bool gibbs, int psamp
 ){
@@ -441,9 +444,13 @@ void bvs_mcmc(
   nu2_inv_mat.diag() =  1/nu2;
 
   // Initial values
-  arma::vec y_star = y;
+  arma::vec y_star = y; // Overwriting this soon, don't worry
   arma::vec proposal_mean(p, arma::fill::zeros);
   double rho = rho_0 / (rho_0 + rho_1);
+  if (!zi){ // Zero inflation
+    rho = 1.0;
+  }
+
   arma::vec u(n, arma::fill::ones);
   for (int i = 0; i < n_zero; i++) u(which_missing(i)) = R::rbinom(1, rho);
   double beta0 = R::rnorm(mean(y.elem(which_present)), 0.5);
@@ -474,7 +481,7 @@ void bvs_mcmc(
   int adapt_point = int(burnin * (1 - adapt_prop));
   arma::mat adapt_beta_storage(burnin - adapt_point, p);
   arma::vec adapt_beta_mean(p, arma::fill::zeros);
-  arma::vec beta_positive_recent = beta;
+  arma::vec beta_positive_recent = beta.head(p);
   arma::vec beta_vec_temp(burnin - adapt_point);
   arma::uvec which_betas(burnin - adapt_point);
 
@@ -487,18 +494,21 @@ void bvs_mcmc(
     // Update y_star (HAS TO COME FIRST DUE TO INITIALIZATION)
     update_y_star(y_star, which_missing, psi, u, current_mean, sigma2);
 
-    // Update u
-    update_u(u, which_missing, psi, y_star, rho);
+    if (zi){
+      // Update u
+      update_u(u, which_missing, psi, y_star, rho);
 
-    // Update rho
-    update_rho(rho, u, rho_0, rho_1);
+      // Update rho
+      update_rho(rho, u, rho_0, rho_1);
+
+    }
 
     // Update delta
     if (infer_delta){
       update_z(z, y_star, u, beta0, X_beta, sigma2, delta);
 
       update_delta(delta, y_star, u, beta0, X_beta, sigma2,
-                     z, nu2_d);
+                   z, nu2_d);
     }
 
     // Update beta0
@@ -519,7 +529,8 @@ void bvs_mcmc(
 
       // Iterative update of proposal mean
       if (r < burnin){
-        beta_positive_recent = arma_ifelse(beta == 0, beta_positive_recent, beta);
+        beta_positive_recent = arma_ifelse(beta.head(p) == 0,
+                                           beta_positive_recent, beta.head(p));
         proposal_mean = beta_positive_recent;
       }
 
@@ -577,7 +588,7 @@ void bvs_mcmc(
     // Refine betas
     if (refine_betas){
       refine_beta(beta,u,y_star,beta0,X,gamma,sigma2,
-                    delta,z,nu2_inv_mat);
+                  delta,z,nu2_inv_mat);
     }
 
     X_beta = X * beta;
@@ -596,9 +607,10 @@ void bvs_mcmc(
       for (int j = 0; j < p; j++){
         beta_samples(r_sub, j) = beta(j);
         gamma_samples(r_sub, j) = gamma(j);
-
       }
-
+      for (int j = p; j < p + s; j++){
+        beta_c_samples(r_sub, j - p) = beta(j);
+      }
     }
 
   }

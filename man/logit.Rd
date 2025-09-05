@@ -13,7 +13,7 @@ logit(p)
 \eqn{log(p/(1-p))}
 }
 \description{
-For a probability \eqn{p}, returns \eqn{log(p/(1-p))}.
+For a probability \eqn{p}, returns \eqn{\log(p/(1-p))}.
 }
 \examples{
 

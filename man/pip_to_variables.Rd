@@ -2,19 +2,46 @@
 % Please edit documentation in R/pip_to_variables.R
 \name{pip_to_variables}
 \alias{pip_to_variables}
-\title{Determine PIPs}
+\title{Select variables based on posterior inclusion probabilities (PIPs)}
 \usage{
 pip_to_variables(pip, method = c("fdr", "cutoff"), cutoff = 0.5, fdr = 0.05)
 }
 \arguments{
-\item{pip}{The pips}
+\item{pip}{A vector or matrix of PIPs.}
 
-\item{method}{the method}
+\item{method}{Either \code{"fdr"} to perform Bayesian FDR correction (the
+default) or \code{"cutoff"} to use a pre-defined threshold}
 
-\item{cutoff}{cutoff}
+\item{cutoff}{The PIP cutoff when \code{method="cutoff"}. Variables are
+selected if their PIP is at least \code{cutoff}.}
 
-\item{fdr}{fdr}
+\item{fdr}{The FDR level when \code{method="fdr"}. Default is 0.05.}
 }
 \description{
-Determine PIPs
+Select variables based on posterior inclusion probabilities (PIPs)
+}
+\details{
+\code{\link[=metab_vs]{metab_vs()}} performs Bayesian variable selection via spike-and-slab priors of
+the form \eqn{\beta_j=\tilde{\beta}_j\gamma_j}, \eqn{\tilde{\beta}\sim\mathcal{N}(0,\nu^2)},
+\eqn{\gamma_j\in\{0,1\}}. Here, \eqn{\gamma_j} is an indicator variable
+for whether \eqn{\beta_j} is zero. The posterior mean of \eqn{\gamma_j} is
+called the posterior inclusion probability (PIP) and represents the conditional
+probability that \eqn{X_{ji}} is associated with \eqn{V_i} given the data.
+The purpose of this function is to classify variables as associated or
+unassociated with the response variable by comparing their observed PIPs to
+a cutoff value. A variable is declared to be "selected" if
+its PIP is greater than or equal to the cutoff.
+
+The function can be applied in two ways: setting \code{method="cutoff"} to
+choose the cutoff manually, or setting \code{method="fdr"} to calculate the
+lowest cutoff that achieves the desired nominal false discovery rate (FDR).
+The latter approach is based on the Bayesian FDR method proposed
+by Newton et al. (2004, Biostatistics).
+}
+\references{
+\enumerate{
+\item Newton MA, Noueiry A, Deepayan S, Paul A. Detecting differential gene
+expression with a semiparametric hierarchical mixture method. Biostatistics.
+2004;5(2):155-176.
+}
 }

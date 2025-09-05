@@ -15,10 +15,13 @@ get_eta_pt(
   thinning = 5,
   refine_betas = TRUE,
   model_skewness = TRUE,
+  type = c("MH", "gibbs"),
   adaptive = FALSE,
   adapt_prop = 0.25,
   theta2 = 2,
+  psamp = ceiling(ncol(X)/5),
   vs = TRUE,
+  zi = TRUE,
   pmax = ncol(X),
   pmax_draws = 10,
   eta_tol = 0.1,
@@ -54,6 +57,9 @@ separately from the gamma parameters using a Gibbs sampler. Default is TRUE.}
 \item{model_skewness}{Logical value indicating whether to use the skew-normal
 distribution rather than the normal distribution. Default is TRUE.}
 
+\item{type}{Sampling scheme used for variable selection. Either \code{"MH"}
+for Metropolis-Hastings (the default) or \code{"gibbs"} for Gibbs sampling.}
+
 \item{adaptive}{Logical value indicating whether to tune the Metropolis-Hastings
 parameter based on samples drawn during the burnin stage of the MCMC. Default
 is false because my code for this isn't working.}
@@ -64,7 +70,12 @@ parameter.}
 \item{theta2}{Sampling variance of the proposed beta in the Metropolis-Hastings. If adaptive,
 this parameter is updated based on the last adapt_prop of the burnin draws.}
 
+\item{psamp}{If using Gibbs sampling, the number of selection indicators to update
+in each iteration. The default is \code{ceiling(ncol(X)/5)}.}
+
 \item{vs}{Logical value indicating whether to perform variable selection. Default is true.}
+
+\item{zi}{Logical value indicating whether to fit a zero-inflated model. Default is true.}
 
 \item{pmax}{Upper limit for the number of selected variables. If more than \code{pmax} variable are selected
 in \code{pmax_draws} consecutive draws, the algorithm is terminated early to prevent phase transition. The default

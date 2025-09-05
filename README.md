@@ -4,9 +4,29 @@
 # multimetab
 
 <!-- badges: start -->
+
 <!-- badges: end -->
 
-The goal of multimetab is to …
+`multimetab` is an R package for performing Bayesian variable selection
+with mass spectrometry-based metabolite measurements as the response
+variable. It provides companion code for our manuscript, “A
+nutritionally informed model for Bayesian variable selection of
+metabolite endpoints,” which presented a novel framework metabolite
+analysis based on a skew-normal censored mixture model (SNCM).
+Metabolite measurements require specialized models because they are
+highly right-skewed and exhibit missing values, called point mass values
+(PMVs), that arise from multiple sources. “Biological” PMVs occur if the
+mass spectrometer fails to detect the metabolite because it is
+completely absent from the sample in question. “Technical” PMVs occur
+when the metabolite is present in the sample but with an intensity below
+the metabolite’s “detection limit”, resulting in a spurious missing
+value that does not reflect total absence. The proposed internally
+handles PMVs of both types, while directly modeling the skewness of the
+positive-valued metabolites via the skew-normal distribution. Variable
+selection is performed by placing spike-and-slab priors on the
+regression coefficients and, optionally, using a Markov Random Field
+(MRF) prior that exploits external information on the substantive
+relationships among variables.
 
 ## Installation
 
@@ -17,36 +37,3 @@ You can install the development version of multimetab from
 # install.packages("devtools")
 devtools::install_github("dclarkboucher/multimetab")
 ```
-
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(multimetab)
-## basic example code
-```
-
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
-
-``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
-```
-
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this.
-
-You can also embed plots, for example:
-
-<img src="man/figures/README-pressure-1.png" width="100%" />
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.

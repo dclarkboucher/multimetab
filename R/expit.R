@@ -1,7 +1,7 @@
 #' Expit
 #'
 #' Inverse of the \code{\link{logit}} function, defined as
-#' \eqn{expit(x) = 1/(1 + exp(-x))}
+#' \eqn{expit(x) = 1/(1 + \exp(-x))}
 #'
 #' @param x A real number \eqn{x}
 #'

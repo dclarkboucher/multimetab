@@ -57,8 +57,8 @@
 #' prior distribution using Metropolis-Hastings for a variety of candidate values.
 #'
 #'
-#'
-#' @returns A value
+#' @returns A value of \code{eta}.
+#' @importFrom stats qbinom
 #' @export
 #'
 get_eta_simple <-
@@ -73,7 +73,7 @@ get_eta_simple <-
 
     # Use out to determine prior.
     p <- ncol(R)
-    target <- qbinom(p = quantile, size = p, prob = (2 * expit(omega)))
+    target <- stats::qbinom(p = quantile, size = p, prob = (2 * expit(omega)))
     eta_indices <- which(out$quantile < target)
     if (length(eta_indices) == 0) stop("No etas found. Try new eta_list.")
     max(etas_try[eta_indices])

@@ -1,0 +1,112 @@
+#' Generate hyper-parameters for Bayesian variable selection
+#'
+#' @param nu2_0 Prior variance of the intercept, \code{\beta_0\sim\mathcal{N}(0,\nu_0^2)}.
+#' Default is 1.0
+#' @param nu2_d Prior variance of the delta, \code{\delta\sim\mathcal{N}(0,\nu_d^2)}.
+#' @param nu2 Prior variance of the regression coefficients of each \code{\X_{ji}},
+#' \code{\beta_j\sim\mathcal{N}(0,\nu^2)}, \code{j\in 1,\dots,p}.
+#' @param lambda2 A numeric vector of length equal to the number of confounding
+#' variables in \code{C}, representing the variance in the prior
+#' \code{\alpha_j\sim\mathcal{N}(0,\lambda_j^2)}, \code{j\in 1,\dots,s}. Default
+#' is \code{10^2} which is a reasonably uninformative prior if \code{C} is
+#' standardized.
+#' @param sigma2_prior Hyperparameters for the \eqn{\mathcal{IG}(0.5\xi_0,0.5\xi_0\sigma^2_0)}
+#' prior on \eqn{\sigma^2}. Default is \code{c(3,1)}, which, though weakly informative,
+#' is only sensible if \eqn{\sigma^2} is expected to be fairly close to 1. It is
+#' recommended to either standardize \code{Y} as far as possible (since there are missing values)
+#'
+#' @param omega Hyperparameter for MRF hyperprior that controls overall sparsity.
+#' Default is \code{logit(0.01)}, corresponding to a 1% prior inclusion probability
+#' if \code{\eta=0}.
+#' @param eta Hyperparameter for MRF hyperprior that controls the degree of
+#' influence of \code{R}. Can be either numeric, in which case \code{eta} is
+#' specified manually, or \code{"calculate"}, in which case the function
+#' [get_eta_simple()] is called to determine a reasonable value of \eqn{eta} as
+#' described in our manuscript. In this case, the matrix \code{R} must be provided.
+#' @param rho_prior Hyperparameters for the \eqn{Beta(\rho_0,\rho_1)} prior on
+#' \eqn{\rho}, with mean \code{\rho_0/(\rho_0 + \rho_1)}. Default is \code{c(1,1)},
+#' equivalent to Uniform(0,1). Can be \code{"adaptive"}, in which case the
+#' prior set to \eqn{5(\sqrt{\bar{W}},1-\sqrt{\bar{W}})}, where \eqn{\bar{W}} is
+#' the proportion of observations that are not missing/censored.
+#'
+#' @param y (If \code{method="tuned"}) Numeric vector of metabolite measurements. Values will be
+#' treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.
+#' @param X (If \code{method="tuned"}) Numeric matrix of the predictor variables that will
+#' be considered for variable selection. Rows are the subjects and columns
+#' are the variables.
+#' @param C (If \code{method="tuned"}) Numeric matrix of confounding variables that are excluded
+#' from variable selection (optional). Rows are the the subjects and columns are the variables.
+#' If provided, should NOT include an intercept term.
+#' @param psi (If \code{method="tuned"}) Numeric value representing the metabolite's detection limit. All
+#' \code{y} values below \code{psi} will be treated as PMVs and inferred via data
+#' augmentation. The default is \code{min(y, na.rm =TRUE)}, in which case only
+#' \code{NA} values of \code{y} will be treated as PMVs.
+#' @param R (If \code{method="tuned"}) Relationship matrix for Markov Random Field variable selection prior (optional).
+#' If specified, must be a symmetric non-negative matrix with diagonal zero and
+#' dimension \code{ncol(X)}. If not specified, the
+#' variable selection hyperprior will be independent and identically across
+#' predictors, with prior inclusion probability \code{expit(omega)}. See [metab_bvs()].
+#'
+#' @returns A list of hyperparameters that can be supplied to [metab_bvs()].
+#' @export
+#'
+#' @details
+#' The sensibility of the prior hyperparameters depends both on our scientific
+#' expectations and on the scale of the observed data.
+#'
+#'
+#'
+#' @examples
+metab_vs_hyperparams <-
+  function(
+    method = c("default","tuned"),
+    nu2_0 = 10^2,
+    nu2_d = 10^2,
+    nu2 = rep(2^2, p),
+    lambda2 = rep(10^2, s),
+    xi_0 = 5,
+    sigma2_0 = 4,
+    omega = logit(0.05),
+    eta = 0,
+    rho_0 = 2 * 0.9,
+    rho_1 = 2 * 0.1,
+    y = NULL,
+    psi = NULL,
+    X = NULL,
+    C = NULL
+    ){
+
+    method <- match.arg(method)
+
+    if (method == "default"){
+
+      out <-
+        list(
+          nu2_0 = nu2_0,
+          nu2_d = n2_d,
+          nu2 = nu2,
+          lambda2 = lambda2,
+          xi_0 = xi_0,
+          sigma2_0 = sigma2_0,
+          omega = omega,
+          eta = eta,
+          rho_0 = rho_0,
+          rho_1 = rho_1
+        )
+
+
+    } else if (method == "tuned"){
+
+
+
+
+
+
+
+    }
+
+
+
+  return(out)
+
+}
