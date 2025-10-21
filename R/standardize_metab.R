@@ -21,7 +21,7 @@
 #' re-introduce the missing values. This approach, though imperfect, is useful
 #' for placing metabolites on a comparable numerical scale.
 #'
-#'
+#' @importFrom stats sd
 #' @export
 #'
 
@@ -44,11 +44,12 @@ standardize_metab <- function(Y, psi = apply(Y,2,min,na.rm=TRUE)){
     )
   means <- colMeans(Y_imp)
   sds <- apply(Y_imp,2,sd)
-  Y <- as.numeric(scale(Y_imp))
+  Y <- as.matrix(scale(Y_imp))
   Y[Y_na] <- NA
   list(
     Y = Y,
     means = means,
-    sds = sds
+    sds = sds,
+    psi = (psi - means) / sds
   )
 }

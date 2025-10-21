@@ -1,5 +1,5 @@
 #' Generate hyper-parameters for Bayesian variable selection
-#'
+#' @noRd
 #' @param nu2_0 Prior variance of the intercept, \eqn{\beta_0\sim\mathcal{N}(0,\nu_0^2)}.
 #' Default is 1.0
 #' @param nu2_d Prior variance of the delta, \eqn{\delta\sim\mathcal{N}(0,\nu_d^2)}.
@@ -23,11 +23,6 @@
 #' specified manually, or \code{"calculate"}, in which case the function
 #' [get_eta_simple()] is called to determine a reasonable value of \eqn{eta} as
 #' described in our manuscript. In this case, the matrix \code{R} must be provided.
-#' @param rho_prior Hyperparameters for the \eqn{Beta(\rho_0,\rho_1)} prior on
-#' \eqn{\rho}, with mean \eqn{\rho_0/(\rho_0 + \rho_1)}. Default is \code{c(1,1)},
-#' equivalent to Uniform(0,1). Can be \code{"adaptive"}, in which case the
-#' prior set to \eqn{5(\sqrt{\bar{W}},1-\sqrt{\bar{W}})}, where \eqn{\bar{W}} is
-#' the proportion of observations that are not missing/censored.
 #'
 #' @param y (If \code{method="tuned"}) Numeric vector of metabolite measurements. Values will be
 #' treated as point mass values (PMVs) if they are \code{NA} or if they are below \code{psi}.
@@ -60,8 +55,8 @@ metab_vs_hyperparams <-
     method = c("default","tuned"),
     nu2_0 = 10^2,
     nu2_d = 10^2,
-    nu2 = rep(2^2, p),
-    lambda2 = rep(10^2, s),
+    nu2 = rep(2^2, ncol(X)),
+    lambda2 = rep(10^2, ncol(C)),
     xi_0 = 5,
     sigma2_0 = 4,
     omega = logit(0.05),
@@ -81,7 +76,7 @@ metab_vs_hyperparams <-
       out <-
         list(
           nu2_0 = nu2_0,
-          nu2_d = n2_d,
+          nu2_d = nu2_d,
           nu2 = nu2,
           lambda2 = lambda2,
           xi_0 = xi_0,

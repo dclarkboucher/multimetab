@@ -189,6 +189,7 @@ metab_vs <-
     # eta. But then you would have to supply all the data.
 
     if (is.null(psi)) psi <- min(y, na.rm = TRUE)
+    y[is.na(y)] <- psi - 1 # what matters is that the new values are below psi
 
     n <- length(y)
     p <- ncol(X)
